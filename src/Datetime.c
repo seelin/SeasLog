@@ -35,14 +35,14 @@ static char *seaslog_process_last_min(int now, int if_first TSRMLS_DC)
     }
 
     SEASLOG_G(last_min)->sec = now;
-
+    int  fmrLen = sizeof(SEASLOG_G(disting_format));
     if (SEASLOG_G(disting_by_hour))
     {
-        SEASLOG_G(last_min)->real_time = seaslog_format_date("YmdH", 4, now TSRMLS_CC);
+        SEASLOG_G(last_min)->real_time = seaslog_format_date(SEASLOG_G(disting_format), fmrLen, now TSRMLS_CC);
     }
     else
     {
-        SEASLOG_G(last_min)->real_time = seaslog_format_date("Ymd",  3, now TSRMLS_CC);
+        SEASLOG_G(last_min)->real_time = seaslog_format_date(SEASLOG_G(disting_format), fmrLen, now TSRMLS_CC);
     }
 
     return SEASLOG_G(last_min)->real_time;

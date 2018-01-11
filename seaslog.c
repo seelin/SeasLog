@@ -90,6 +90,7 @@ ZEND_ARG_INFO(0, level)
 ZEND_ARG_INFO(0, message)
 ZEND_ARG_INFO(0, content)
 ZEND_ARG_INFO(0, logger)
+ZEND_ARG_INFO(0, prefix)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(seaslog_log_common_arginfo, 0, 0, 1)
@@ -138,6 +139,7 @@ STD_PHP_INI_ENTRY("seaslog.default_basepath", "/var/log/www", PHP_INI_ALL, OnUpd
 STD_PHP_INI_ENTRY("seaslog.default_logger", "default", PHP_INI_ALL, OnUpdateString, default_logger, zend_seaslog_globals, seaslog_globals)
 STD_PHP_INI_ENTRY("seaslog.default_datetime_format", "Y-m-d H:i:s", PHP_INI_ALL, OnUpdateString, default_datetime_format, zend_seaslog_globals, seaslog_globals)
 STD_PHP_INI_ENTRY("seaslog.default_template", "%T | %L | %P | %Q | %t | %M", PHP_INI_ALL, OnUpdateString, default_template, zend_seaslog_globals, seaslog_globals)
+STD_PHP_INI_ENTRY("seaslog.disting_format", "Y-m-d", PHP_INI_ALL, OnUpdateString, disting_format, zend_seaslog_globals, seaslog_globals)
 
 
 STD_PHP_INI_BOOLEAN("seaslog.disting_type", "0", PHP_INI_ALL, OnUpdateBool, disting_type, zend_seaslog_globals, seaslog_globals)
@@ -302,10 +304,10 @@ static void seaslog_log_by_level_common(INTERNAL_FUNCTION_PARAMETERS, char *leve
     int argc = ZEND_NUM_ARGS();
 
 #if PHP_VERSION_ID >= 70000
-    zend_string *message, *logger;
+    zend_string *message, *logger,*prefix;
     zval *content;
 
-    if (zend_parse_parameters(argc TSRMLS_CC, "S|zS", &message, &content, &logger) == FAILURE)
+    if (zend_parse_parameters(argc TSRMLS_CC, "S|zSS", &message, &content, &logger,&prefix) == FAILURE)
         return;
 
     if (argc > 1 && Z_TYPE_P(content) != IS_ARRAY)
@@ -313,28 +315,32 @@ static void seaslog_log_by_level_common(INTERNAL_FUNCTION_PARAMETERS, char *leve
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "The second argument is not an array");
         RETURN_FALSE;
     }
-
-    if (argc > 1)
+   if (argc > 2){
+        if (seaslog_log_content(argc, level, level_int, ZSTR_VAL(message), ZSTR_LEN(message), HASH_OF(content), ZSTR_VAL(logger), ZSTR_LEN(logger),ZSTR_VAL(prefix),ZSTR_LEN(prefix),seaslog_ce TSRMLS_CC) == FAILURE)
+        {
+            RETURN_FALSE;
+        }
+   }else if (argc > 1)
     {
-        if (seaslog_log_content(argc, level, level_int, ZSTR_VAL(message), ZSTR_LEN(message), HASH_OF(content), ZSTR_VAL(logger), ZSTR_LEN(logger), seaslog_ce TSRMLS_CC) == FAILURE)
+        if (seaslog_log_content(argc, level, level_int, ZSTR_VAL(message), ZSTR_LEN(message), HASH_OF(content), ZSTR_VAL(logger), ZSTR_LEN(logger),"",0,seaslog_ce TSRMLS_CC) == FAILURE)
         {
             RETURN_FALSE;
         }
     }
     else
     {
-        if (seaslog_log_ex(argc, level, level_int, ZSTR_VAL(message), ZSTR_LEN(message), "", 0, seaslog_ce TSRMLS_CC) == FAILURE)
+        if (seaslog_log_ex(argc, level, level_int, ZSTR_VAL(message), ZSTR_LEN(message), "", 0,"",0, seaslog_ce TSRMLS_CC) == FAILURE)
         {
             RETURN_FALSE;
         }
     }
 
 #else
-    char *message, *logger = NULL;
-    int message_len, logger_len = 0;
+    char *message, *logger = NULL,prefix = NULL;;
+    int message_len, logger_len = 0,prefix_len = 0;
     zval **content;
 
-    if (zend_parse_parameters(argc TSRMLS_CC, "s|Zs", &message, &message_len, &content, &logger, &logger_len) == FAILURE)
+    if (zend_parse_parameters(argc TSRMLS_CC, "s|Zss", &message, &message_len, &content, &logger, &logger_len) == FAILURE)
         return;
 
     if (argc > 1 && Z_TYPE_PP(content) != IS_ARRAY)
@@ -342,17 +348,21 @@ static void seaslog_log_by_level_common(INTERNAL_FUNCTION_PARAMETERS, char *leve
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "The second argument is not an array");
         RETURN_FALSE;
     }
-
-    if (argc > 1)
+    if(argc > 2){
+        if (seaslog_log_content(argc, level, level_int, message, message_len, HASH_OF(*content), logger, logger_len,prefix,prefix_len,seaslog_ce TSRMLS_CC) == FAILURE)
+        {
+            RETURN_FALSE;
+        }
+    }else if (argc > 1)
     {
-        if (seaslog_log_content(argc, level, level_int, message, message_len, HASH_OF(*content), logger, logger_len, seaslog_ce TSRMLS_CC) == FAILURE)
+        if (seaslog_log_content(argc, level, level_int, message, message_len, HASH_OF(*content), logger, logger_len, "",0,seaslog_ce TSRMLS_CC) == FAILURE)
         {
             RETURN_FALSE;
         }
     }
     else
     {
-        if (seaslog_log_ex(argc, level, level_int, message, message_len, "", 0, seaslog_ce TSRMLS_CC) == FAILURE)
+        if (seaslog_log_ex(argc, level, level_int, message, message_len, "", 0,"",0,seaslog_ce TSRMLS_CC) == FAILURE)
         {
             RETURN_FALSE;
         }
@@ -738,8 +748,9 @@ PHP_METHOD(SEASLOG_RES_NAME, log)
     zend_string *message = NULL;
     zend_string *logger = NULL;
     zval *content;
+    zend_string *prefix = NULL;
 
-    if (zend_parse_parameters(argc TSRMLS_CC, "SS|zS", &level, &message, &content, &logger) == FAILURE)
+    if (zend_parse_parameters(argc TSRMLS_CC, "SS|zSS", &level, &message, &content, &logger,&prefix) == FAILURE)
         return;
 
     if (argc > 2 && Z_TYPE_P(content) != IS_ARRAY)
@@ -749,35 +760,41 @@ PHP_METHOD(SEASLOG_RES_NAME, log)
     }
 
     level_int = seaslog_get_level_int(ZSTR_VAL(level));
-
-    if (argc > 3)
+    if (argc > 4)
     {
-        if (seaslog_log_content(argc, ZSTR_VAL(level), level_int, ZSTR_VAL(message), ZSTR_LEN(message), HASH_OF(content), ZSTR_VAL(logger), ZSTR_LEN(logger), seaslog_ce TSRMLS_CC) == FAILURE)
+        if (seaslog_log_content(argc, ZSTR_VAL(level), level_int, ZSTR_VAL(message), ZSTR_LEN(message), HASH_OF(content), ZSTR_VAL(logger), ZSTR_LEN(logger), ZSTR_VAL(prefix), ZSTR_LEN(prefix), seaslog_ce TSRMLS_CC) == FAILURE)
+        {
+            RETURN_FALSE;
+        }
+    }
+    else if(argc > 3)
+    {
+        if (seaslog_log_content(argc, ZSTR_VAL(level), level_int, ZSTR_VAL(message), ZSTR_LEN(message), HASH_OF(content), ZSTR_VAL(logger), ZSTR_LEN(logger), "",0,seaslog_ce TSRMLS_CC) == FAILURE)
         {
             RETURN_FALSE;
         }
     }
     else if (argc > 2)
     {
-        if (seaslog_log_content(argc, ZSTR_VAL(level), level_int, ZSTR_VAL(message), ZSTR_LEN(message), HASH_OF(content), "", 0, seaslog_ce TSRMLS_CC) == FAILURE)
+        if (seaslog_log_content(argc, ZSTR_VAL(level), level_int, ZSTR_VAL(message), ZSTR_LEN(message), HASH_OF(content), "", 0,"",0,seaslog_ce TSRMLS_CC) == FAILURE)
         {
             RETURN_FALSE;
         }
     }
     else
     {
-        if (seaslog_log_ex(argc, ZSTR_VAL(level), level_int, ZSTR_VAL(message), ZSTR_LEN(message), "", 0, seaslog_ce TSRMLS_CC) == FAILURE)
+        if (seaslog_log_ex(argc, ZSTR_VAL(level), level_int, ZSTR_VAL(message), ZSTR_LEN(message), "", 0,"",0,seaslog_ce TSRMLS_CC) == FAILURE)
         {
             RETURN_FALSE;
         }
     }
 
 #else
-    char *message, *level = NULL, *logger = NULL;
-    int message_len = 0, level_len = 0, logger_len = 0;
+    char *message, *level = NULL, *logger = NULL,*prefix = NULL;
+    int message_len = 0, level_len = 0, logger_len = 0,prefix_len = 0;
     zval **content;
 
-    if (zend_parse_parameters(argc TSRMLS_CC, "ss|Zs", &level, &level_len, &message, &message_len, &content, &logger, &logger_len) == FAILURE)
+    if (zend_parse_parameters(argc TSRMLS_CC, "ss|Zss", &level, &level_len, &message, &message_len, &content, &logger, &logger_len,&prefix,&prefix_len) == FAILURE)
         return;
 
     if (argc > 2 && Z_TYPE_PP(content) != IS_ARRAY)
@@ -790,14 +807,14 @@ PHP_METHOD(SEASLOG_RES_NAME, log)
 
     if (argc > 2)
     {
-        if (seaslog_log_content(argc, level, level_int, message, message_len, HASH_OF(*content), logger, logger_len, seaslog_ce TSRMLS_CC) == FAILURE)
+        if (seaslog_log_content(argc, level, level_int, message, message_len, HASH_OF(*content), logger, logger_len,prefix,prefix_len,seaslog_ce TSRMLS_CC) == FAILURE)
         {
             RETURN_FALSE;
         }
     }
     else
     {
-        if (seaslog_log_ex(argc, level, level_int, message, message_len, logger, logger_len, seaslog_ce TSRMLS_CC) == FAILURE)
+        if (seaslog_log_ex(argc, level, level_int, message, message_len, logger, logger_len,prefix,prefix_len,seaslog_ce TSRMLS_CC) == FAILURE)
         {
             RETURN_FALSE;
         }

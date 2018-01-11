@@ -53,19 +53,19 @@ static int seaslog_real_log_ex(char *message, int message_len, char *opt, int op
     return SUCCESS;
 }
 
-static int seaslog_log_content(int argc, char *level, int level_int, char *message, int message_len, HashTable *content, char *module, int module_len, zend_class_entry *ce TSRMLS_DC)
+static int seaslog_log_content(int argc, char *level, int level_int, char *message, int message_len, HashTable *content, char *module, int module_len, char *prefix,int prefix_len,zend_class_entry *ce TSRMLS_DC)
 {
     int ret;
     char *result = php_strtr_array(message, message_len, content);
 
-    ret = seaslog_log_ex(argc, level, level_int, result, strlen(result), module, module_len, ce TSRMLS_CC);
+    ret = seaslog_log_ex(argc, level, level_int, result, strlen(result), module, module_len,prefix,prefix_len,ce TSRMLS_CC);
 
     efree(result);
 
     return ret;
 }
 
-static int seaslog_log_ex(int argc, char *level, int level_int, char *message, int message_len, char *module, int module_len, zend_class_entry *ce TSRMLS_DC)
+static int seaslog_log_ex(int argc, char *level, int level_int, char *message, int message_len, char *module, int module_len, char *prefix, int prefix_len,zend_class_entry *ce TSRMLS_DC)
 {
     logger_entry_t *logger;
 
@@ -96,13 +96,13 @@ static int seaslog_log_ex(int argc, char *level, int level_int, char *message, i
         break;
     case SEASLOG_APPENDER_FILE:
     default:
-        return appender_handle_file(message, message_len, level, logger, ce TSRMLS_CC);
+        return appender_handle_file(message, message_len, level, logger,prefix, ce TSRMLS_CC);
     }
 
     return SUCCESS;
 }
 
-static int appender_handle_file(char *message, int message_len, char *level, logger_entry_t *logger, zend_class_entry *ce TSRMLS_DC)
+static int appender_handle_file(char *message, int message_len, char *level, logger_entry_t *logger, char *prefix,zend_class_entry *ce TSRMLS_DC)
 {
 
     char *log_file_path, *log_info, *real_date;
@@ -111,7 +111,11 @@ static int appender_handle_file(char *message, int message_len, char *level, log
     real_date = make_real_date(TSRMLS_C);
     if (SEASLOG_G(disting_type))
     {
-        log_file_path_len = spprintf(&log_file_path, 0, "%s/%s.%s.log", logger->logger_path, real_date, level);
+        if ( strlen(prefix) > 0){
+            log_file_path_len = spprintf(&log_file_path, 0, "%s/%s_%s.log", logger->logger_path,prefix,real_date);
+        }else{
+            log_file_path_len = spprintf(&log_file_path, 0, "%s/%s_%s_%s.log", logger->logger_path,level,prefix,real_date);            
+        }
     }
     else
     {
