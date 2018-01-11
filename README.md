@@ -124,12 +124,18 @@ seaslog.disting_type = 0
 ;1-Y 0-N(Default)
 seaslog.disting_by_hour = 0
 
+seaslog.disting_format=Y-m-d
+;Default Ymd
+
 ;Switch use the log buffer with memory.
 ;1-Y 0-N(Default)
 seaslog.use_buffer = 0
 
 ;The buffer size
 seaslog.buffer_size = 100
+
+
+
 
 ;Record logger level. 
 ;0-EMERGENCY 1-ALERT 2-CRITICAL 3-ERROR 4-WARNING 5-NOTICE 6-INFO 7-DEBUG 8-ALL
@@ -535,8 +541,9 @@ class SeasLog
      * @param        $message
      * @param array  $content
      * @param string $module
+     * @param string $prefix
      */
-    static public function log($level, $message, array $content = array(), $module = '')
+    static public function log($level, $message, array $content = array(), $module = '',$prefix="")
     {
 
     }

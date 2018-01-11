@@ -120,6 +120,14 @@ seaslog.default_template = "%T | %L | %P | %Q | %t | %M"
 ;是否以type分文件 1是 0否(默认)
 seaslog.disting_type = 1
 
+;是否以type分文件 1是 0否(默认)
+seaslog.disting_type = 1
+
+;文件名的格式
+seaslog.disting_format=Y-m-d
+;Default Ymd
+
+
 ;是否每小时划分一个文件 1是 0否(默认)
 seaslog.disting_by_hour = 0
 
